@@ -1,13 +1,22 @@
+#coding: UTF-8
+
 import numpy as np
+import re 
 from scipy import stats
 import json, jieba, wordcloud
 import matplotlib.pyplot as plt
 from imageio import imread
 
+from util import util
+
 #%matplotlib inline
 plt.rc('figure', figsize=(15, 15))
+plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
+plt.rcParams['axes.unicode_minus']=False #用来正常显示负号
 
-filename = 'D:/code_agg/divorce_demo/divorce.json'
+
+
+filename = 'E:/project_agg/divorce_analysis/divorce.json'
 divorce = []
 with open(filename, 'r', encoding='utf-8') as f:
     for line in f:
@@ -36,22 +45,30 @@ for lines in divorce:
                 else:
                     label_dict[dv] = [every_dict['sentence']]
 #print(label_dict['DV10'])
+#停用词字典
+stop_word = ['年','月', '日', '元', '万元', '原告', '被告', '原被告', '向', '的', '由', '在', '为']
+
 label_dict_seg = {}
 for labels in label_dict.keys():
     tmp = label_dict[labels]
     label_dict_seg[labels] = ''
     for word in tmp:
         word = word.replace(' ', '')
-        label_dict_seg[labels] += ' ' + ' '.join(jieba.cut(word, cut_all = False))
+        word = re.sub(r'[，。、；（）：“”]*', '', word)
+        tmp_stop_word = jieba.cut(word, cut_all = False)
+        for seg in tmp_stop_word:
+            if seg not in stop_word:
+                label_dict_seg[labels] += ' ' + seg 
+        #label_dict_seg[labels] += ' ' + ' '.join(jieba.cut(word, cut_all = False))
 
-#print(label_dict_seg['DV10'])
+#print(label_dict_seg['DV1'])
 
 
 ##做词云
 # 引入字体
-font=r"C:/WINDOWS/Fonts/simsunb.ttf"
+font=r"C:/Windows/Fonts/simhei.ttf"
 #读取背景图片,生成矩阵
-color_mask = imread("love.jpg")
+color_mask = imread("E:/project_agg/divorce_analysis/love.jpg")
 # 生成词云对象，设置参数
 cloud = wordcloud.WordCloud( font_path=font,#设置字体
            background_color="black", #背景颜色
@@ -60,10 +77,14 @@ cloud = wordcloud.WordCloud( font_path=font,#设置字体
            max_font_size=100, #字体最大值
            random_state=42)
 # 绘制词云图
-mywc = cloud.generate(label_dict_seg['DV10'])
+mywc = cloud.generate(label_dict_seg['DV1'])
 plt.imshow(mywc)
+# mywc2 = cloud.generate(label_dict_seg['DV9'])
+# plt.imshow(mywc2)
+plt.show()
 
 #之后可以做一些描述统计的内容，比如说判例中离婚了多少，没离婚的多少。
+#进一步的描述统计，比如某个词在总共中出现了多少次
 total = len(divorce)
 count_divorce = 0
 for lines in divorce:
@@ -73,10 +94,11 @@ for lines in divorce:
             sig = 1
     if sig == 1:
         count_divorce += 1
+        #every_dict += 
 
 print(count_divorce)
 print(total)
-
+#正负样本数量相当：185 vs 215，因此不用考虑增加负样本的算法
 
 
 
