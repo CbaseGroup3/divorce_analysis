@@ -24,5 +24,5 @@ divorce = util().read_json(filename)
 
 # print(util().count_divorce(divorce))
 
-out = util().pre_process(divorce)
-print(len(out))
+out = util().pre_process(divorce, stop_word)
+print(out[:100])

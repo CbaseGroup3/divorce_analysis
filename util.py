@@ -76,16 +76,23 @@ class util:
         return [total, count_divorce]
 
     #训练词向量，把所有的句子都放到一起
-    def pre_process(self, divorce):
+    def pre_process(self, divorce, stop_word):
         out = []
         for lines in divorce:
             for every_dict in lines:
                 tmp = every_dict['sentence']
+                tmp = re.sub(r'[、（）“”]*', '', tmp)
                 tmp = tmp.replace(' ', '')
-                tmp = re.sub(r'[、（）：“”]*', '', tmp)
-                tmp = re.split(r'[，。；]', tmp)
+                tmp = re.split(r'[，。；：]', tmp)
+                
                 for tmp_new in tmp:
-                    out += [jieba.cut(tmp, cut_all = False)]
+                    tmp_stop_word = jieba.cut(tmp_new, cut_all = False)
+                    tmp_1 = ''
+                    for seg in tmp_stop_word:
+                        if seg not in stop_word and seg != '':
+                            tmp_1 += ' ' + seg 
+                    if tmp_1 != '':
+                        out += [[tmp_1]]
         
         return out 
 
