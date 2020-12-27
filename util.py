@@ -9,6 +9,7 @@ from imageio import imread
 from gensim.models import Word2Vec
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+from sklearn import tree
 
 class util:
     def __init__(self):
@@ -133,7 +134,7 @@ class util:
         return model
 
     #可以尝试更多的word embedding方法
-    # tf-idf, 
+    # tf-idf
 
 
 
@@ -183,6 +184,18 @@ class util:
         print(model.score(X_test, y_test))
 
         return model 
+    
+    def classify_cart(self, dataset):
+        X = dataset.iloc[:, :219]
+        y = dataset['isdivorce']
+        #print(X)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=33)
+        model = tree.DecisionTreeClassifier()
+        model.fit(X_train, y_train)
+        print(model.score(X_test, y_test))
+        return model
+
+
     
 
             
