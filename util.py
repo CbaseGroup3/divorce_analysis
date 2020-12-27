@@ -1,10 +1,14 @@
 #coding: UTF-8
 import numpy as np
+import pandas as pd 
 import re 
 from scipy import stats
 import json, jieba, wordcloud
 import matplotlib.pyplot as plt
 from imageio import imread
+from gensim.models import Word2Vec
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 
 class util:
     def __init__(self):
@@ -74,26 +78,126 @@ class util:
             if sig == 1:
                 count_divorce += 1
         return [total, count_divorce]
+    
+    def isdivorce(self, div_line):
+        #判断这个案子最终是否离婚
+        sig = 0
+        for every_dict in div_line:
+            if 'DV9' in every_dict['labels']:
+                sig = 1
+                break 
+        return True if sig == 1 else False 
+
+
+    def count_dv(self, div_line):
+        #本函数用于计算这一行各个dv的数量
+        #从dv1到dv20
+        dv_dict = {}
+        for i in range(1, 21):
+            if i != 9:
+                label = 'DV' + str(i)
+                dv_dict[label] = 0
+        
+        #将这一行中dv_count存到dv_dict中去
+        for every_dict in div_line:
+            if len(every_dict['labels']) != 0:
+                for dv in every_dict['labels']:
+                    if dv != 'DV9':
+                        dv_dict[dv] += 1
+        
+        return dv_dict
+
 
     #训练词向量，把所有的句子都放到一起
-    def pre_process(self, divorce, stop_word):
+    def _pre_process(self, divorce, stop_word):
         out = []
         for lines in divorce:
             for every_dict in lines:
+                tmp_1 = []
                 tmp = every_dict['sentence']
-                tmp = re.sub(r'[、（）“”]*', '', tmp)
+                tmp = re.sub(r'[、（）“”，。；：]*', '', tmp)
                 tmp = tmp.replace(' ', '')
-                tmp = re.split(r'[，。；：]', tmp)
+                tmp_stop_word = jieba.cut(tmp, cut_all = False)
                 
-                for tmp_new in tmp:
-                    tmp_stop_word = jieba.cut(tmp_new, cut_all = False)
-                    tmp_1 = ''
-                    for seg in tmp_stop_word:
-                        if seg not in stop_word and seg != '':
-                            tmp_1 += ' ' + seg 
-                    if tmp_1 != '':
-                        out += [[tmp_1]]
+                for seg in tmp_stop_word:
+                    if seg not in stop_word and seg != '':
+                        tmp_1 += [seg] 
+                if tmp_1 != '':
+                    out += [tmp_1]
         
         return out 
+
+    def w2v(self, divorce, stop_word):
+        sentence_agg = self._pre_process(divorce, stop_word)
+        model = Word2Vec(sentence_agg, size = 200, window = 5, min_count = 3)
+        return model
+
+    #可以尝试更多的word embedding方法
+    # tf-idf, 
+
+
+
+    #需要做sentence embedding，然后训练分类模型
+    def data_prepare(self, divorce, stop_word):
+        model1 = self.w2v(divorce, stop_word)
+        n = model1.wv.vectors.shape[1]
+
+        # sentence embedding 先尝试加权平均
+        ##先产出label
+        label = list(self.count_dv(divorce[0]).keys())
+        for i in range(n):
+            tmp = 'c' + str(i)
+            label += [tmp]
+        label += ['isdivorce']
+
+        out = []
+        for lines in divorce:
+            tmp = self._pre_process([lines], stop_word) #jieba.cut
+            sen_embedding = [0] * n
+            count = 0
+
+            for sen in tmp:
+                for wd in sen:
+                    #word必须在word2vec的词列表中
+                    if wd in model1.wv.index2word:
+                        vec = model1.wv.vectors[model1.wv.vocab[wd].index]
+                        sen_embedding = [(sen_embedding[i] + vec[i]) for i in range(n)] 
+                        count += 1
+            
+            sen_embedding = [(sen_embedding[i]/count) for i in range(n)]
+            dv = self.count_dv(lines)
+            y = self.isdivorce(lines)
+            out += [list(dv.values()) + sen_embedding + [1 if y else 0]]
+        
+        df = pd.DataFrame.from_records(out, columns = label)
+
+        return df 
+            
+    def classify_logis(self, dataset):
+        X = dataset.iloc[:, :219]
+        y = dataset['isdivorce']
+        #print(X)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=33)
+        model = LogisticRegression(max_iter=10000)
+        model.fit(X_train, y_train)
+        print(model.score(X_test, y_test))
+
+        return model 
+    
+
+            
+
+
+
+
+
+
+
+
+# word = '欧几里得'
+# vec = model.wv.vectors[model.wv.vocab[word].index]
+
+# print('词向量长度：', vec.shape)
+# print('词向量：\n', vec)
 
 
